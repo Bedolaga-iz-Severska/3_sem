@@ -9,3 +9,129 @@
    b) the program should be environment($PATH variable)-sensitive: for ex.,'/bin/ls' should be executed with string 'ls'. 
 3. Collect exit codes via waitpid/WEXITSTATUS.
 4. Note that a size of command can reach a lot of kbytes: type "getconf ARG_MAX" cmd to check it.
+
+
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/wait.h>
+#include <string.h>
+
+
+const int MAX_SIZE = 128;
+int token_numb;
+
+
+
+void Clear_mem(char** args)
+{
+        for (int i=0; i< token_numb; i++)
+                free(args[i]);
+        free (args);
+}
+
+
+
+
+
+int ReadLine(char* string_ptr)
+{
+        if(fgets(string_ptr, MAX_SIZE, stdin)==NULL || strlen(string_ptr) == MAX_SIZE-1)
+        {
+                return 0;
+        }
+        else
+        {
+                string_ptr[strlen(string_ptr)-1]='\0';
+                return 1;
+        }
+}
+
+
+
+
+
+char** Parse_Comand(char** args, char* comand)
+{
+        args = (char**)malloc(sizeof(char*)*10);
+        int tokens=0;
+        int size=10;
+        char delim[] = " ,\n";
+        for (char* p  = strtok(comand, delim); p!=NULL;p=strtok(NULL,delim))
+        {
+                args[tokens] = malloc(sizeof(char) * (strlen(p)+1));
+                strcpy(args[tokens],p);
+                tokens++;
+                if(tokens==size-1)
+                {
+                        size = size*2;
+                        args = (char**)realloc(args, sizeof(char*)*size);
+                }
+        }
+        token_numb = tokens;
+        return args;
+}
+
+
+
+
+
+
+void Procedure(char* comand)
+{
+        char** args= Parse_Comand(args, comand);
+        const pid_t pid = fork();
+        int status;
+        if(pid<0)
+        {
+                printf("\n***** Fail to fork *****\n\n");
+                return;
+        }
+
+
+        if(pid)
+        {
+                waitpid(pid,&status,0);
+                if(!status)
+                        printf("\n***** Comand Succed *****\n\n");
+                printf("Exit code: %d\n", WEXITSTATUS(status));
+                Clear_mem(args);
+                return;
+        }
+
+        execvp(args[0],args);
+        printf("\n***** Invalid Comand *****\n\n");
+        exit(1);
+}
+
+
+
+
+
+
+int main()
+{
+        char comand[MAX_SIZE];
+        char exit_str[12] = "exit program";
+        int run=1;
+        while (run)
+        {
+                switch(ReadLine(comand))
+                {
+                        case 0:
+                        {
+                                printf("\n***** Invalid string *****\n\n");
+                                while(!ReadLine(comand));
+                                break;
+                        }
+                        case 1:
+                        if(!strcmp(comand, exit_str))
+                        {
+                                run = 0;
+                                break;
+                        }
+                        Procedure(comand); break;
+                }
+        }
+        return 0;
+}
