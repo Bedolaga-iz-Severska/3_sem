@@ -10,3 +10,100 @@
   а) пронаблюдать стагнацию роста производительности при увеличении числа потоков
   б*) определить, при каких n' (насколько больших) накладные расходы от использования многопоточности [и синхронизации, если она имела место]
   превосходят преимущества их использования.
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <math.h>
+#include <time.h>
+#define BIG_NUMB 1000000
+#define pi 3.141592
+#define N 24300000
+#define left 0
+#define right 3.141592
+#define down 0
+#define up 10
+// функция f(x) = exp(x)*sin^2(x) на промежутке от left до right;
+// точки на плоскости будут выбираться произвольным образом в клетке [left,right].[down,up]
+// общее количество точек N = 24.300.000 = 2^5*3^5*5^5
+
+struct Thread_Entity
+{
+        float result;
+        pthread_t th_id;
+        float x;
+        float dx;
+        int points;
+};
+
+
+
+float f(float x)
+{
+	return exp(x)*sin(x)*sin(x); 
+}
+
+int RandomNumber(int from, int to)
+{
+	return rand()%(from-to)+from;
+}
+
+void* Integrate(void* input)
+{
+	struct Thread_Entity* temp = (struct Thread_Entity*)input;
+	int t1 = (int)(temp->x * BIG_NUMB);
+	int t2 = (int)(temp->dx * BIG_NUMB);
+	for (int i = 0; i<temp->points; i++)
+	{
+		float first_rand =(float)RandomNumber(t1, t1+t2)/BIG_NUMB;
+		float second_rand = (float)RandomNumber((int)(down*BIG_NUMB), (int)(up*BIG_NUMB))/BIG_NUMB;
+		if(f(first_rand)>second_rand)
+			temp->result++;
+	}	
+	
+}
+
+int main()
+{
+	printf("Integral:   N:   Time:\n");
+	struct timespec start,stop;
+	for (int i=1;i<=sqrt(N); i++)
+	{
+		if(N%i==0)
+		{	
+			float dx = (float)(right-left)/i;
+			struct Thread_Entity* arr = (struct Thread_Entity*)malloc(i*sizeof(struct Thread_Entity));
+			for (int th_numb=0; th_numb<i; th_numb++)
+			{
+				arr[th_numb].x = th_numb*dx+left;
+				arr[th_numb].dx = dx;
+				arr[th_numb].points = N/i;
+				arr[th_numb].result = 0;
+			}
+			if(clock_gettime(CLOCK_MONOTONIC, &start) == -1)
+			{
+				perror("clock_gettime_error");
+				return -1;
+			}
+			for (int th_numb = 0; th_numb < i; th_numb++)
+				pthread_create(&(arr[th_numb].th_id),NULL,Integrate,&arr[th_numb]);
+			for (int th_numb=0; th_numb < i; th_numb++)
+				pthread_join(arr[th_numb].th_id, NULL);
+			if(clock_gettime(CLOCK_MONOTONIC, &stop) == -1)
+                        {
+                                perror("clock_gettime_error");
+                                return -1;
+                        }
+			double time_sec = (stop.tv_sec - start.tv_sec) +(double)(stop.tv_nsec-start.tv_nsec)/1000000000;
+			float answer = 0;
+			for (int th_numb=0; th_numb<i; th_numb++)
+			{
+				answer+=arr[th_numb].result;
+			}
+			answer = answer/N*(right-left)*(up-down);
+			printf("%f     %d       %f\n", answer, i, time_sec);		
+		}
+	}
+}
+
