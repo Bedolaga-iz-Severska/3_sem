@@ -1,0 +1,74 @@
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <signal.h>
+
+#define filename "out.txt"
+//reciever
+struct Manager
+{
+	int ones;
+	int zeros;
+	int size;
+	int char_numb;
+	int pid;
+};
+
+char data[1000];
+struct Manager manager;
+
+
+void one(int i)
+{
+	manager.zeros = 0;
+	manager.ones++;
+	kill(manager.pid, SIGUSR1);
+}
+
+void two(int i)
+{
+	if(manager.zeros == 0)
+	{
+		manager.char_numb = manager.char_numb*10 + (manager.ones-1);
+		manager.zeros++;
+		manager.ones=0;
+	}
+	else 
+	{
+		data[manager.size] = (char)manager.char_numb;
+	
+		manager.size++;
+		manager.ones = 0;
+		manager.zeros = 0;
+		manager.char_numb = 0;
+	}
+	kill(manager.pid, SIGUSR1);
+}
+
+void exit_program(int i)
+{
+	data[manager.size] = '\0';
+	FILE* file = fopen(filename, "w");
+	fwrite(data, sizeof(char), manager.size, file);
+	fclose(file);
+	printf("Process was terminated\n");
+	exit(0);
+}
+
+
+int main()
+{
+	manager.ones = 0;
+	manager.zeros = 0;
+	manager.size = 0;
+	manager.char_numb = 0;
+	printf("This process pid: %d\n", getpid());
+	printf("Enter another's process pid: \n");
+	scanf("%d",&manager.pid);
+	signal(SIGUSR1, one);
+	signal(SIGUSR2, two);
+	signal(SIGTERM, exit_program);
+	while(1)
+	sleep(1);	
+}
+

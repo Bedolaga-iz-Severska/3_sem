@@ -1,0 +1,108 @@
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <signal.h>
+
+#define filename "in.txt"
+//sender
+char data[1000];
+int translation[10000];
+int pid;
+int size;
+int current_numb=0;
+int current_signals=0;
+int ready = 0;
+
+void blip()
+{
+
+	if(current_numb == size)
+	{
+		printf("#$");
+		ready = 1;
+		return;
+	}
+	if(translation[current_numb] == -1)
+	{
+		current_numb++;
+		kill(pid, SIGUSR2);
+	}
+	else if(translation[current_numb]+1 == current_signals)
+	{
+		current_numb++;
+		current_signals=0;
+		kill(pid, SIGUSR2);
+	}
+	else
+	{
+		current_signals++;
+		kill(pid, SIGUSR1);
+	}
+}
+
+void respond(int i)
+{
+        blip();
+}
+
+
+
+void translate()
+{
+	int i=0;
+	for (int j=0; j<size; j++)
+	{
+		int char_numb = (int)data[j];
+		if (char_numb/100 !=0)
+		{
+			translation[i] = char_numb/100;
+			i++;
+			translation[i] = char_numb/10 - 10 * (char_numb/100);
+			i++;
+			translation[i] = char_numb - 10 * (char_numb/10);
+			i++;
+			translation[i] = -1;
+			i++;
+		}
+		else if (char_numb/10 != 0)
+		{
+			translation[i] = char_numb/10;
+                        i++;
+                        translation[i] = char_numb - 10 * (char_numb/10);
+                        i++;
+			translation[i] = -1;
+			i++;
+		}
+		else
+		{
+                        translation[i] = char_numb;
+                        i++;
+			translation[i] = -1;
+			i++;
+		}
+	}
+	size = i;
+}
+
+int main()
+{
+
+	printf("This process pid: %d\n", getpid());
+	printf("Enter another's process pid: \n");
+	scanf("%d",&pid);
+	FILE* file = fopen(filename, "r");
+	size = fread(data, sizeof(char), 1000, file);
+	fclose(file);
+
+	translate();
+	signal(SIGUSR1, respond);
+
+	blip();
+
+	while(!ready)
+		sleep(1);
+	kill(pid, SIGTERM);
+	printf("Process was terminated\n");
+	exit(0);
+}
+
