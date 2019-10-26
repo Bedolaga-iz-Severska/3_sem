@@ -9,7 +9,7 @@
 2) Провести серию измерений, в которой, увеличивая число n' :
   а) пронаблюдать стагнацию роста производительности при увеличении числа потоков
   б*) определить, при каких n' (насколько больших) накладные расходы от использования многопоточности [и синхронизации, если она имела место]
-  превосходят преимущества их использования.
+  превосходят преимущества их использован.
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -17,6 +17,7 @@
 #include <pthread.h>
 #include <math.h>
 #include <time.h>
+#include <sodium.h>
 #define BIG_NUMB 1000000
 #define pi 3.141592
 #define N 24300000
@@ -66,6 +67,7 @@ void* Integrate(void* input)
 
 int main()
 {
+	srand(time(NULL));
 	printf("Integral:   N:   Time:\n");
 	struct timespec start,stop;
 	for (int i=1;i<=sqrt(N); i++)
@@ -102,7 +104,7 @@ int main()
 				answer+=arr[th_numb].result;
 			}
 			answer = answer/N*(right-left)*(up-down);
-			printf("%f     %d       %f\n", answer, i, time_sec);		
+			printf("%f     %d       %f\n", answer, i, time_sec);	
 		}
 	}
 }
