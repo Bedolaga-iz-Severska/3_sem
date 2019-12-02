@@ -1,7 +1,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -12,9 +11,9 @@
 #include <poll.h>
 #include <string.h>
 
-#define th_sz 5
+#define th_sz 2
 #define Server_FIFO "fifo.txt"
-#define cl_sz 2
+#define cl_sz 5
 #define file1name "file1.txt"
 #define file2name "file2.txt"
 #define file3name "file3.txt"
@@ -67,11 +66,19 @@ void *Transition(void* args)
 			}
 			int file_descriptor = open(FNM, O_RDONLY);
 			char send[1000];
-			read(file_descriptor, send, sizeof(send));
-			printf("%s\n", send);
-			char numb[5] = itoa(cl_numb);
-			printf("%s\n", numb);
-			sleep(20);
+			int size = read(file_descriptor, send, sizeof(send)-1);
+			send[size] = '\0';
+			char numb[5];
+			sprintf(numb, "%d", cl_numb);
+			mknod(numb, S_IFIFO | 0666, 0);
+		        int temp_flow_fd = open(numb, O_WRONLY);
+
+
+			sleep(10); //thinking time
+
+
+			write(temp_flow_fd, send, strlen(send));
+			close(temp_flow_fd);
 
 		}
 		else
@@ -117,7 +124,6 @@ int main()
 			read(server_fd, buf, sizeof(buf));
 			int end = 0;
 			int i=1;
-			printf("#1\n");
 			while(!end)
 			{
 				int k=0;
@@ -134,7 +140,6 @@ int main()
 				i++;
 				
 				
-				printf("%s, %s\n", forward_fd_name, backward_fd_name);
 				communication new_client;
 				mknod(forward_fd_name, S_IFIFO | 0666, 0);
 			        new_client.client_server_fd = open(forward_fd_name, O_RDONLY);
@@ -145,20 +150,21 @@ int main()
 				{
 					if(free_to_commun[j] == 0)
 					{
-						printf("%d\n", j);
 						found = 1;
 						free_to_commun[j] = 1;
 						arr_com[j] = new_client;
 						clients_fds[j].fd = new_client.client_server_fd;
 						clients_fds[j].events = 0|POLLIN;
+						char response_buf[100];
+                                        	strcpy(response_buf, "Connected");
+						write(new_client.server_client_fd, response_buf, strlen(response_buf)+1);
 						break;
 					}
 				}
 				if(!found)
 				{
-					printf("NO!\n");
 					char response_buf[100];
-					strcpy(response_buf, "No free sckets");
+					strcpy(response_buf, "No free sockets");
 					write(new_client.server_client_fd, response_buf, strlen(response_buf)+1);
 					close(new_client.client_server_fd);
 					close(new_client.server_client_fd);
@@ -181,12 +187,10 @@ int main()
 				{
 					char Message[100];
 					read(clients_fds[cl_numb].fd, Message, 100);
-					printf("%s, %d\n", Message, strlen(Message));
 					int n = 1;
 						char token[100];	
 						while(Message[n] != '*')
 						{
-							printf("GG\n");
 							token[n-1] = Message[n];
 							n++;
 						}
@@ -198,29 +202,40 @@ int main()
 							close(arr_com[cl_numb].server_client_fd);
 							clients_fds[cl_numb].fd=0;
 						}
-						else if(strcmp(token, "file1"))
+						else if(strcmp(token, "file1")==0)
 						{
 							pthread_mutex_lock(&mutex);
 							arr_req[Clients_Requests].client_numb = cl_numb;
 							arr_req[Clients_Requests].request = 1;
 							Clients_Requests++;
 							pthread_mutex_unlock(&mutex);
+							char numb[5];
+                				        sprintf(numb, "%d", cl_numb);
+				                        write(arr_com[cl_numb].server_client_fd,numb, sizeof(numb));
+
 						}
-						else if(strcmp(token, "file2"))
+						else if(strcmp(token, "file2")==0)
                                                 {
                                                         pthread_mutex_lock(&mutex);
                                                         arr_req[Clients_Requests].client_numb = cl_numb;
                                                         arr_req[Clients_Requests].request = 2;
                                                         Clients_Requests++;
                                                         pthread_mutex_unlock(&mutex);
+							char numb[5];
+                                                        sprintf(numb, "%d", cl_numb);
+                                                        write(arr_com[cl_numb].server_client_fd,numb, sizeof(numb));
+
                                                 }
-						else if(strcmp(token, "file3"))
+						else if(strcmp(token, "file3")==0)
                                                 {
                                                         pthread_mutex_lock(&mutex);
                                                         arr_req[Clients_Requests].client_numb = cl_numb;
                                                         arr_req[Clients_Requests].request = 3;
                                                         Clients_Requests++;
                                                         pthread_mutex_unlock(&mutex);
+							char numb[5];
+                                                        sprintf(numb, "%d", cl_numb);
+                                                        write(arr_com[cl_numb].server_client_fd,numb, sizeof(numb));
                                                 }
 
 					}
